@@ -16,6 +16,5 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Repository check
-        run: |
-          echo "Repository structure OK"
+      - name: Validate posts
+        run: python scripts/validate_posts.py
