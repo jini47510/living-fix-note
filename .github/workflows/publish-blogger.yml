@@ -37,3 +37,15 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
           CURRENT_SHA: ${{ github.sha }}
         run: python scripts/publish_changed.py
+
+      - name: Record published post details
+        run: |
+          if git diff --quiet; then
+            echo "No publication metadata to record."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add posts/ready/*/post.json
+          git commit -m "Record Blogger publication details [skip ci]"
+          git push
