@@ -34,9 +34,22 @@ def changed_directories(before_sha: str, current_sha: str) -> list[Path]:
     for line in output.splitlines():
         parts = Path(line).parts
         if len(parts) >= 4 and parts[0:2] == ("posts", "ready"):
-            directories.add(Path(parts[0]) / parts[1] / parts[2])
+            directory = Path(parts[0]) / parts[1] / parts[2]
+            if directory.exists():
+                directories.add(directory)
 
     return sorted(directories)
+
+
+def site_files_changed(before_sha: str, current_sha: str) -> bool:
+    if not before_sha or set(before_sha) == {"0"}:
+        return Path("site").exists()
+
+    result = subprocess.run(
+        ["git", "diff", "--quiet", before_sha, current_sha, "--", "site"],
+        check=False,
+    )
+    return result.returncode == 1
 
 
 def request_json(
@@ -123,11 +136,20 @@ def main() -> None:
     current_sha = os.environ.get("CURRENT_SHA", "HEAD")
 
     directories = changed_directories(before_sha, current_sha)
-    if not directories:
+    sync_site = site_files_changed(before_sha, current_sha)
+    if not directories and not sync_site:
         print("이번 병합에서 게시할 글이 없습니다.")
         return
 
     access_token = obtain_access_token(client_id, client_secret, refresh_token)
+
+    if sync_site:
+        from sync_blogger_site import clean_up_posts, sync_pages
+        from validate_site import main as validate_site
+
+        validate_site()
+        sync_pages(blog_id, access_token)
+        clean_up_posts(blog_id, access_token)
 
     for directory in directories:
         metadata, content = read_post(directory)
