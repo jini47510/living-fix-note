@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -11,6 +12,11 @@ from pathlib import Path
 from typing import Any
 
 from common import read_post, validate_post, write_metadata
+
+
+RETRYABLE_HTTP_CODES = {429, 500, 502, 503, 504}
+RETRY_DELAYS_SECONDS = (10, 30, 60, 120)
+POST_INTERVAL_SECONDS = 10
 
 
 def require_env(name: str) -> str:
@@ -59,18 +65,34 @@ def request_json(
     headers: dict[str, str] | None = None,
     data: bytes | None = None,
 ) -> dict[str, Any]:
-    request = urllib.request.Request(
-        url,
-        method=method,
-        headers=headers or {},
-        data=data,
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"Google API 오류 {exc.code}: {body}") from exc
+    for attempt in range(len(RETRY_DELAYS_SECONDS) + 1):
+        request = urllib.request.Request(
+            url,
+            method=method,
+            headers=headers or {},
+            data=data,
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            if exc.code not in RETRYABLE_HTTP_CODES or attempt >= len(
+                RETRY_DELAYS_SECONDS
+            ):
+                raise RuntimeError(f"Google API 오류 {exc.code}: {body}") from exc
+
+            retry_after = exc.headers.get("Retry-After")
+            try:
+                delay = int(retry_after) if retry_after else RETRY_DELAYS_SECONDS[attempt]
+            except ValueError:
+                delay = RETRY_DELAYS_SECONDS[attempt]
+            delay = max(delay, RETRY_DELAYS_SECONDS[attempt])
+            print(
+                f"Google API 요청 제한({exc.code}). {delay}초 후 "
+                f"{attempt + 2}번째 시도를 합니다."
+            )
+            time.sleep(delay)
 
 
 def obtain_access_token(client_id: str, client_secret: str, refresh_token: str) -> str:
@@ -170,6 +192,7 @@ def main() -> None:
         sync_pages(blog_id, access_token)
         clean_up_posts(blog_id, access_token)
 
+    publishable_posts = []
     for directory in directories:
         metadata, content = read_post(directory)
         errors = validate_post(directory, metadata, content)
@@ -184,6 +207,12 @@ def main() -> None:
             print(f"건너뜀: {metadata.get('title')} — status가 ready가 아님")
             continue
 
+        publishable_posts.append((directory, metadata, content))
+
+    for index, (directory, metadata, content) in enumerate(publishable_posts):
+        if index:
+            print(f"다음 글 등록 전 {POST_INTERVAL_SECONDS}초 대기합니다.")
+            time.sleep(POST_INTERVAL_SECONDS)
         result = publish_post(blog_id, access_token, metadata, content)
         scheduled = bool(metadata.get("publish_at"))
         updated = {
