@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -50,14 +51,26 @@ def validate_post(directory: Path, metadata: dict[str, Any], content: str) -> li
     if not isinstance(labels, list) or not labels or not all(isinstance(x, str) and x.strip() for x in labels):
         errors.append(f"{directory}: labels 배열에 카테고리를 하나 이상 넣어야 합니다.")
 
-    if status not in {"ready", "published"}:
-        errors.append(f"{directory}: status는 ready 또는 published여야 합니다.")
+    if status not in {"ready", "scheduled", "published"}:
+        errors.append(f"{directory}: status는 ready, scheduled 또는 published여야 합니다.")
+
+    publish_at = metadata.get("publish_at")
+    if publish_at is not None:
+        if not isinstance(publish_at, str):
+            errors.append(f"{directory}: publish_at은 RFC 3339 문자열이어야 합니다.")
+        else:
+            try:
+                parsed = datetime.fromisoformat(publish_at.replace("Z", "+00:00"))
+                if parsed.tzinfo is None:
+                    raise ValueError
+            except ValueError:
+                errors.append(f"{directory}: publish_at에 시간대가 포함된 날짜를 입력하세요.")
 
     if len(content) < 500:
         errors.append(f"{directory}: content.html 본문이 너무 짧습니다. 최소 500자입니다.")
 
-    if status == "published" and not metadata.get("blogger_post_id"):
-        errors.append(f"{directory}: published 상태에는 blogger_post_id가 필요합니다.")
+    if status in {"scheduled", "published"} and not metadata.get("blogger_post_id"):
+        errors.append(f"{directory}: {status} 상태에는 blogger_post_id가 필요합니다.")
 
     return errors
 

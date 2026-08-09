@@ -116,14 +116,33 @@ def publish_post(
         ensure_ascii=False,
     ).encode("utf-8")
 
-    return request_json(
-        endpoint,
+    publish_at = metadata.get("publish_at")
+    insert_endpoint = endpoint + ("?isDraft=true" if publish_at else "")
+    result = request_json(
+        insert_endpoint,
         method="POST",
         headers={
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json; charset=utf-8",
         },
         data=body,
+    )
+
+    if not publish_at:
+        return result
+
+    post_id = result.get("id")
+    if not post_id:
+        raise RuntimeError(f"Blogger 임시글 ID가 없습니다: {result}")
+    schedule_endpoint = (
+        f"https://www.googleapis.com/blogger/v3/blogs/"
+        f"{urllib.parse.quote(blog_id)}/posts/{urllib.parse.quote(str(post_id))}/publish?"
+        + urllib.parse.urlencode({"publishDate": str(publish_at)})
+    )
+    return request_json(
+        schedule_endpoint,
+        method="POST",
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
 
@@ -166,16 +185,18 @@ def main() -> None:
             continue
 
         result = publish_post(blog_id, access_token, metadata, content)
+        scheduled = bool(metadata.get("publish_at"))
         updated = {
             **metadata,
-            "status": "published",
+            "status": "scheduled" if scheduled else "published",
             "blogger_post_id": result.get("id"),
             "published_url": result.get("url"),
-            "published_at": result.get("published")
+            "published_at": result.get("published") or metadata.get("publish_at")
             or datetime.now(timezone.utc).isoformat(),
         }
         write_metadata(directory, updated)
-        print(f"게시 완료: {metadata['title']} → {result.get('url')}")
+        action = "예약 완료" if scheduled else "게시 완료"
+        print(f"{action}: {metadata['title']} → {result.get('url')}")
 
 
 if __name__ == "__main__":
