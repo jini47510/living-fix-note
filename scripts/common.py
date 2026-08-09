@@ -69,8 +69,14 @@ def validate_post(directory: Path, metadata: dict[str, Any], content: str) -> li
     if len(content) < 500:
         errors.append(f"{directory}: content.html 본문이 너무 짧습니다. 최소 500자입니다.")
 
-    if status in {"scheduled", "published"} and not metadata.get("blogger_post_id"):
-        errors.append(f"{directory}: {status} 상태에는 blogger_post_id가 필요합니다.")
+    if (
+        status in {"scheduled", "published"}
+        and not metadata.get("blogger_post_id")
+        and not metadata.get("published_url")
+    ):
+        errors.append(
+            f"{directory}: {status} 상태에는 blogger_post_id 또는 published_url이 필요합니다."
+        )
 
     return errors
 
