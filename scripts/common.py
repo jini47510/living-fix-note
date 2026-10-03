@@ -11,7 +11,11 @@ POSTS_DIR = Path("posts/ready")
 def post_directories() -> list[Path]:
     if not POSTS_DIR.exists():
         return []
-    return sorted(path for path in POSTS_DIR.iterdir() if path.is_dir())
+    return sorted(
+        path
+        for path in POSTS_DIR.iterdir()
+        if path.is_dir() and not path.name.startswith("_")
+    )
 
 
 def read_post(directory: Path) -> tuple[dict[str, Any], str]:

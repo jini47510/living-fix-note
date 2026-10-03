@@ -1,0 +1,24 @@
+{
+  "updates": [
+    {
+      "post_id": "8410746213431583516",
+      "image_path": "assets/post-images/2026-10/04-kimchi-fridge-cleaning.png",
+      "alt": "김치냉장고 내부 선반과 고무 패킹을 청소하는 방법"
+    },
+    {
+      "post_id": "4757595885312458527",
+      "image_path": "assets/post-images/2026-10/05-kimchi-door-gasket.png",
+      "alt": "김치냉장고 문 패킹과 용기 간섭을 확인하는 모습"
+    },
+    {
+      "post_id": "1434391846829751515",
+      "image_path": "assets/post-images/2026-10/06-humidifier-leak.png",
+      "alt": "가습기 주변 바닥의 누수와 결로를 구분하는 점검"
+    },
+    {
+      "post_id": "5452620434344098037",
+      "image_path": "assets/post-images/2026-10/07-humidifier-water-tank.png",
+      "alt": "가습기 물통과 급수 밸브를 확인하는 방법"
+    }
+  ]
+}
