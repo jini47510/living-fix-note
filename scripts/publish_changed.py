@@ -133,7 +133,7 @@ def apply_post_image_updates(blog_id: str, access_token: str) -> None:
             f"{urllib.parse.quote(blog_id)}/posts/{urllib.parse.quote(post_id)}"
         )
         post = request_json(
-            endpoint,
+            endpoint + "?view=ADMIN",
             headers={"Authorization": f"Bearer {access_token}"},
         )
         content = str(post.get("content", ""))
